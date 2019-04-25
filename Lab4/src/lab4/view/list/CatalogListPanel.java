@@ -1,5 +1,6 @@
 package lab4.view.list;
 
+import java.awt.event.MouseListener;
 import java.util.List;
 
 import javax.swing.DefaultListModel;
@@ -34,5 +35,9 @@ public class CatalogListPanel extends JPanel {
 	
 	public void addListSelectionListener(ListSelectionListener listSelectionListener) {
 		jList.addListSelectionListener(listSelectionListener);
+	}
+	
+	public void addListMouseListener(MouseListener listMouseListener) {
+		jList.addMouseListener(listMouseListener);
 	}
 }

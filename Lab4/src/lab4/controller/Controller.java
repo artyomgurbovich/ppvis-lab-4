@@ -1,7 +1,11 @@
 package lab4.controller;
 
+import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -10,6 +14,7 @@ import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
+import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
 import javax.swing.event.*;
 import javax.swing.filechooser.FileSystemView;
@@ -22,19 +27,17 @@ import lab4.view.MainWindow;
 
 public class Controller {
 	
-	private final String HOME_DIRECTORY_PATH = "C:\\Windows\\";
 	private final int DRIVE_LETTER_OFFSET = 2;
-	private final int SLEEP_TIME = 1000;
 	private final String LOAD_TEXT = "Load";
 	private final String SAVE_TEXT = "Save";
 	public static final int TABLE_MODE_INDEX = 0;
 	public static final int LIST_MODE_INDEX = 1;
 	public static final int ICONS_MODE_INDEX = 2;
+	private final String FOLDER_TYPE = "Folder";
 	
 	private MainWindow mainWindow;
 	private List<Drive> drives;
 	private List<FileDescription> filesDescriptions;
-	private DefaultMutableTreeNode root;
 	private String currentCatalogPath;
 	private File selectedFile;
 	private String currentFilter = MainWindow.ALL_FILES;
@@ -54,6 +57,13 @@ public class Controller {
 		mainWindow.setCatalogIconsListener(catalogListListener);
 		mainWindow.setFileButtonListener(fileButtonListener);
 		mainWindow.setFiltersBoxListener(filtersBoxListener);
+		mainWindow.setCatalogTableMouseListener(tableMouseListener);
+		mainWindow.setCatalogListMouseListener(listMouseListener);
+		mainWindow.setCatalogIconsMouseListener(listMouseListener);
+	}
+	
+	public void clear() {
+		selectedFile = null;
 	}
 	
 	public void setLoadModeText() {
@@ -65,11 +75,14 @@ public class Controller {
 	}
 	
 	public int checkFileOnLoadMode() {
-		if (selectedFile != null && selectedFile.exists()) {
-			return MyFileChooser.APPROVE_OPTION;
-		} else {
-			return MyFileChooser.ERROR_OPTION;
+		if (selectedFile != null) {
+			if (selectedFile.exists()) {
+				return MyFileChooser.APPROVE_OPTION;
+			} else {
+				JOptionPane.showMessageDialog(new JFrame(), "File not exist!", "Error", JOptionPane.ERROR_MESSAGE);
+			}
 		}
+		return MyFileChooser.ERROR_OPTION;
 	}
 	
 	public int checkFileOnSaveMode() {
@@ -121,11 +134,14 @@ public class Controller {
 	
 	private ListSelectionListener catalogTableListener = new ListSelectionListener() {
         public void valueChanged(ListSelectionEvent e) {
-        	if (!e.getValueIsAdjusting()){
+        	if (!e.getValueIsAdjusting()) {
                 ListSelectionModel source = (ListSelectionModel) e.getSource();
                 if (!source.isSelectionEmpty()) {
                 	int selectedRow = source.getMinSelectionIndex();
-                	mainWindow.setFileFieldText(filesDescriptions.get(selectedRow).getName());
+                	FileDescription fileDescription = filesDescriptions.get(selectedRow);
+                	if (!filesDescriptions.get(selectedRow).isFolder()) {
+                		mainWindow.setFileFieldText(fileDescription.getName());
+                	}
                 }
             }
         }
@@ -157,10 +173,7 @@ public class Controller {
 	
 	private ActionListener homeListener = new ActionListener() {
 		public void actionPerformed(ActionEvent e) {
-			currentCatalogPath = HOME_DIRECTORY_PATH;
-	    	filesDescriptions = getFilesDescriptions(currentCatalogPath);
-			mainWindow.setCurrentPathText(HOME_DIRECTORY_PATH);
-	    	mainWindow.updateCurrentCatalog(filesDescriptions);
+	    	mainWindow.openHomeDirectory();
 		}
 	};
 	
@@ -188,15 +201,7 @@ public class Controller {
 			if (!e.getValueIsAdjusting()) {
 				int currentDriveIndex = listSelectionModel.getMinSelectionIndex();
 		        File fileRoot = new File(drives.get(currentDriveIndex).getLetter() + ":");
-		        root = new DefaultMutableTreeNode(fileRoot, true);
-		        mainWindow.updateCatalogs(root);
-				ChildNodeManager childNodeManager = new ChildNodeManager(root, fileRoot);
-		        new Thread(childNodeManager).start();
-		        try {
-					Thread.sleep(SLEEP_TIME);
-				} catch (InterruptedException e1) {
-					e1.printStackTrace();
-				}
+		        mainWindow.updateCatalogs(fileRoot);
 			}
 		}
 	};
@@ -214,6 +219,7 @@ public class Controller {
 	    	filesDescriptions = getFilesDescriptions(currentCatalogPath);
 	    	mainWindow.setCurrentPathText(currentCatalogPath);
 	    	mainWindow.updateCurrentCatalog(filesDescriptions);
+	    	mainWindow.updateCatalogChild(new File(currentCatalogPath));
 	    }
 	};
 	
@@ -241,12 +247,12 @@ public class Controller {
 	
 	private String getFileExtension(File file) {
 		if (file.isDirectory()) {
-			return "Folder";
+			return FOLDER_TYPE;
 		} else {
 			String extension = "";
 			String fileName = file.getName();
-			int i = fileName.lastIndexOf('.');
-			extension = fileName.substring(i+1);
+			int index = fileName.lastIndexOf('.');
+			extension = fileName.substring(index+1);
 			return extension;
 		}
 	}
@@ -260,37 +266,28 @@ public class Controller {
 		return simpleDateFormat.format(file.lastModified());
 	}
 	
-	class ChildNodeManager implements Runnable {
-	    private DefaultMutableTreeNode node;
-	    private File fileRoot;
-
-	    public ChildNodeManager(DefaultMutableTreeNode node, File fileRoot) {
-	        this.fileRoot = fileRoot;
-	        this.node = node;
+	MouseListener listMouseListener = new MouseAdapter() {
+	    public void mousePressed(MouseEvent mouseEvent) {
+	    	@SuppressWarnings("unchecked")
+			JList<FileDescription> list = (JList<FileDescription>) mouseEvent.getSource();
+        	FileDescription selectedFile = list.getSelectedValue();
+	        if (mouseEvent.getClickCount() == 2 && selectedFile.isFolder()) {
+	        	mainWindow.openFolder(selectedFile.getName());
+	        }
 	    }
-
-	    @Override
-	    public void run() {
-	    	getCatalog(node, fileRoot);
+	};
+	
+	MouseListener tableMouseListener = new MouseAdapter() {
+	    public void mousePressed(MouseEvent mouseEvent) {
+	        JTable table =(JTable) mouseEvent.getSource();
+	        Point point = mouseEvent.getPoint();
+	        int row = table.rowAtPoint(point);
+	        if (mouseEvent.getClickCount() == 2 && table.getSelectedRow() != -1) {
+	        	String selectedFileType = (String) table.getValueAt(row, 1);
+	        	if (selectedFileType.equals(FOLDER_TYPE)) {
+	        		mainWindow.openFolder((String) table.getValueAt(row, 0));
+	        	}
+	        }
 	    }
-
-		private void getCatalog(DefaultMutableTreeNode node, File file) {
-			file = new File(file.getPath() + "\\");
-			File filesList[] = file.listFiles();
-			if (filesList != null) {
-	            for(File child: filesList)
-	            {
-	                DefaultMutableTreeNode childNode = new DefaultMutableTreeNode(child.getName());
-	                if(child.isDirectory())
-	                {
-	                	node.add(childNode);
-	                	if (node != null) {
-		    		        mainWindow.updateCatalogsNode(node);
-	                	}
-	                    getCatalog(childNode, child);
-	                }
-	            }
-			}
-	    }
-	}
+	};
 }

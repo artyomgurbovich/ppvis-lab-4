@@ -2,12 +2,12 @@ package lab4.view;
 
 import java.awt.Dimension;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseListener;
+import java.io.File;
 import java.util.List;
 import javax.swing.*;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.event.TreeSelectionListener;
-import javax.swing.tree.DefaultMutableTreeNode;
-
 import lab4.controller.Controller;
 import lab4.model.Drive;
 import lab4.model.FileDescription;
@@ -202,12 +202,24 @@ public class MainWindow {
 		catalogTable.getSelectionModel().addListSelectionListener(catalogTableListener);
 	}
 	
+	public void setCatalogTableMouseListener(MouseListener tableMouseListener) {
+		catalogTable.addMouseListener(tableMouseListener);
+	}
+	
 	public void setCatalogListListener(ListSelectionListener catalogListListener) {
 		catalogListPanel.addListSelectionListener(catalogListListener);
 	}
 	
+	public void setCatalogListMouseListener(MouseListener listMouseListener) {
+		catalogListPanel.addListMouseListener(listMouseListener);
+	}
+	
 	public void setCatalogIconsListener(ListSelectionListener catalogIconsListener) {
 		catalogIconsPanel.addListSelectionListener(catalogIconsListener);
+	}
+	
+	public void setCatalogIconsMouseListener(MouseListener iconsMouseListener) {
+		catalogIconsPanel.addListMouseListener(iconsMouseListener);
 	}
 	
 	public void setTableModeListner(ActionListener tableModeListener) {
@@ -233,12 +245,8 @@ public class MainWindow {
 		drivesTableModel.updateData(drives);
 	}
 	
-	public void updateCatalogs(DefaultMutableTreeNode root) {
-		catalogsPanel.updateRootNode(root);
-	}
-	
-	public void updateCatalogsNode(DefaultMutableTreeNode node) {
-		catalogsPanel.updateChildNode(node);
+	public void updateCatalogs(File fileRoot) {
+		catalogsPanel.updateRootNode(fileRoot);
 	}
 	
 	public void changeMode(int modeIndex) {
@@ -275,5 +283,18 @@ public class MainWindow {
 	
 	public void setTreeSelectionListener(TreeSelectionListener treeSelectionListener) {
 		catalogsPanel.setTreeSelectionListener(treeSelectionListener);
+	}
+	
+	public void openHomeDirectory() {
+		drivesTable.setRowSelectionInterval(0, 0);
+		catalogsPanel.openHomeDirectory();
+	}
+
+	public void updateCatalogChild(File childFile) {
+		catalogsPanel.updateChildNode(childFile);
+	}
+	
+	public void openFolder(String folderName) {
+		catalogsPanel.openFolder(folderName);
 	}
 }

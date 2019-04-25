@@ -19,12 +19,14 @@ public class MyFileChooser {
 	}
 	
 	public int showLoadDialog() {
+		controller.clear();
 		controller.setLoadModeText();
 		mainWindow.start();
 		return controller.checkFileOnLoadMode();
 	}
 	
 	public int showSaveDialog() {
+		controller.clear();
 		controller.setSaveModeText();
 		mainWindow.start();
 		return controller.checkFileOnSaveMode();
