@@ -14,20 +14,20 @@ public class MyFileChooser {
 	private MainWindow mainWindow;
 	
 	public MyFileChooser() {
-		mainWindow = new MainWindow();
-		controller = new Controller(mainWindow);
+		controller = new Controller();
+		mainWindow = new MainWindow(controller);
 	}
 	
 	public int showLoadDialog() {
 		controller.clear();
-		controller.setLoadModeText();
+		mainWindow.setModeText(Controller.LOAD_TEXT);
 		mainWindow.start();
 		return controller.checkFileOnLoadMode();
 	}
 	
 	public int showSaveDialog() {
 		controller.clear();
-		controller.setSaveModeText();
+		mainWindow.setModeText(Controller.SAVE_TEXT);
 		mainWindow.start();
 		return controller.checkFileOnSaveMode();
 	}
@@ -37,6 +37,6 @@ public class MyFileChooser {
 	}
 	
 	public void setFilters(String[] filters) {
-		controller.setFilters(filters);
+		mainWindow.setFilters(filters);
 	}
 }

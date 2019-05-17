@@ -1,15 +1,20 @@
 package lab4.view;
 
 import java.awt.Dimension;
+import java.awt.Point;
+import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.MouseListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.File;
 import java.util.List;
 import javax.swing.*;
+import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+import javax.swing.event.TreeSelectionEvent;
 import javax.swing.event.TreeSelectionListener;
+import javax.swing.tree.TreePath;
 import lab4.controller.Controller;
-import lab4.model.Drive;
 import lab4.model.FileDescription;
 import lab4.view.icons.CatalogIconsRenderer;
 import lab4.view.list.CatalogListPanel;
@@ -57,7 +62,11 @@ public class MainWindow {
 	private JMenuItem iconsMode;
 	private JMenuItem home;
 	
-	public MainWindow() {
+	/////
+	
+	private Controller controller;
+	
+	public MainWindow(Controller controller) {
 		catalogsPanel = new CatalogsPanel();
 		drivesTableModel = new DrivesTableModel();
 		drivesTable = new JTable(drivesTableModel);
@@ -87,6 +96,153 @@ public class MainWindow {
 		
 		dialog = new JDialog();
 		dialog.setModal(true);
+		
+		/////
+		
+		this.controller = controller;
+		
+		catalogTable.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+	        public void valueChanged(ListSelectionEvent e) {
+	        	if (!e.getValueIsAdjusting()) {
+	                ListSelectionModel source = (ListSelectionModel) e.getSource();
+	                if (!source.isSelectionEmpty()) {
+	                	int selectedRow = source.getMinSelectionIndex();
+	                	FileDescription fileDescription = controller.getFilesDescriptions().get(selectedRow);
+	                	if (!controller.getFilesDescriptions().get(selectedRow).isFolder()) {
+	                		setFileFieldText(fileDescription.getName());
+	                	}
+	                }
+	            }
+	        }
+		});
+		
+		catalogTable.addMouseListener(new MouseAdapter() {
+		    public void mousePressed(MouseEvent mouseEvent) {
+		        JTable table =(JTable) mouseEvent.getSource();
+		        Point point = mouseEvent.getPoint();
+		        int row = table.rowAtPoint(point);
+		        if (mouseEvent.getClickCount() == 2 && table.getSelectedRow() != -1) {
+		        	String selectedFileType = (String) table.getValueAt(row, 1);
+		        	if (selectedFileType.equals(Controller.FOLDER_TYPE)) {
+		        		openFolder((String) table.getValueAt(row, 0));
+		        	}
+		        }
+		    }
+		});
+		
+		MouseAdapter listMouseListener = new MouseAdapter() {
+		    public void mousePressed(MouseEvent mouseEvent) {
+		    	@SuppressWarnings("unchecked")
+				JList<FileDescription> list = (JList<FileDescription>) mouseEvent.getSource();
+	        	FileDescription selectedFile = list.getSelectedValue();
+		        if (mouseEvent.getClickCount() == 2 && selectedFile.isFolder()) {
+		        	openFolder(selectedFile.getName());
+		        }
+		    }
+		};
+		
+		catalogListPanel.addListMouseListener(listMouseListener);
+		catalogIconsPanel.addListMouseListener(listMouseListener);
+		
+		ListSelectionListener listSelectionListener = new ListSelectionListener() {
+	        public void valueChanged(ListSelectionEvent e) {
+	        	if (!e.getValueIsAdjusting()) {
+	                @SuppressWarnings("unchecked")
+					JList<FileDescription> source = (JList<FileDescription>) e.getSource();
+	                FileDescription fileDescription = source.getSelectedValue();
+	                if (fileDescription != null) {
+	                    setFileFieldText(fileDescription.getName());
+	                }
+	            }
+	        }
+		};
+		
+		catalogListPanel.addListSelectionListener(listSelectionListener);
+		catalogIconsPanel.addListSelectionListener(listSelectionListener);
+
+		listSelectionModel.addListSelectionListener(new ListSelectionListener() {
+			public void valueChanged(ListSelectionEvent e) {
+				ListSelectionModel listSelectionModel = (ListSelectionModel)e.getSource();
+				if (!e.getValueIsAdjusting()) {
+					int currentDriveIndex = listSelectionModel.getMinSelectionIndex();
+			        File fileRoot = new File(controller.getDrives().get(currentDriveIndex).getLetter() + ":");
+			        updateCatalogs(fileRoot);
+				}
+			}
+		});
+		
+		catalogsPanel.setTreeSelectionListener(new TreeSelectionListener() {  
+		    public void valueChanged(TreeSelectionEvent e) { 
+		    	String currentCatalogPath = "";
+		    	TreePath treePath = e.getPath();
+		    	if (treePath != null) {
+		    		Object[] elements = treePath.getPath();
+		            for (Object element: elements) {
+		            	currentCatalogPath += element + "\\";
+		            }
+		    	}
+		    	controller.setCurrentCatalogPath(currentCatalogPath);
+		    	setCurrentPathText(currentCatalogPath);
+		    	controller.setFilesDescriptions(controller.loadFilesDescriptions(currentCatalogPath));
+		    	updateCurrentCatalog(controller.getFilesDescriptions());
+		    	updateCatalogChild(new File(currentCatalogPath));
+		    }
+		});
+		
+		fileButton.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				controller.setSelectedFile(new File(controller.getCurrentCatalogPath() + getFileFieldText()));
+				if (controller.getSelectedFile().isDirectory()) {
+					controller.setSelectedFile(null);
+					JOptionPane.showMessageDialog(new JFrame(), "Folder selected!", "Error", JOptionPane.ERROR_MESSAGE);
+				} else {
+					dispose();
+				}
+			}
+		});
+		
+		filtersBox.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				if (controller.getFilesDescriptions() != null) {
+					controller.setFilesDescriptions(controller.loadFilesDescriptions(controller.getCurrentCatalogPath()));
+					updateCurrentCatalog(controller.getFilesDescriptions());
+				}
+			}
+		});
+		
+		ActionListener listModeButtonListner = new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				changeMode(Controller.LIST_MODE_INDEX);
+			}
+		};
+		
+		ActionListener tableModeButtonListner = new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				changeMode(Controller.TABLE_MODE_INDEX);
+			}
+		};
+		
+		ActionListener iconsModeButtonListner = new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				changeMode(Controller.ICONS_MODE_INDEX);
+			}
+		};
+		
+		listModeButton.addActionListener(listModeButtonListner);
+		listMode.addActionListener(listModeButtonListner);
+		tableModeButton.addActionListener(tableModeButtonListner);
+		tableMode.addActionListener(tableModeButtonListner);	
+		iconsModeButton.addActionListener(iconsModeButtonListner);
+		iconsMode.addActionListener(iconsModeButtonListner);
+		
+		ActionListener homeButtonListner = new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				openHomeDirectory();
+			}
+		};
+		
+		homeButton.addActionListener(homeButtonListner);
+		home.addActionListener(homeButtonListner);
 	}
 	
 	private JMenu createMenu() {
@@ -99,6 +255,8 @@ public class MainWindow {
 	}
 	
 	public void start() {
+		drivesTableModel.updateData(controller.getDrives());
+		
 		JMenuBar menuBar = new JMenuBar(); 
         menuBar.add(createMenu());
 		
@@ -169,20 +327,12 @@ public class MainWindow {
 	public void dispose() {
 		dialog.dispose();
 	}
-	
-	public void setFiltersBoxListener(ActionListener filtersBoxListener) {
-		filtersBox.addActionListener(filtersBoxListener);
-	}
-	
+
 	public void setFilters(String[] filters) {
 		filtersBox.removeAllItems();
 		for (String filter: filters) {
 			filtersBox.addItem(filter);
 		}
-	}
-	
-	public void setFileButtonListener(ActionListener fileButtonListener) {
-		fileButton.addActionListener(fileButtonListener);
 	}
 	
 	public void setModeText(String modeText) {
@@ -198,51 +348,8 @@ public class MainWindow {
 		return fileField.getText();
 	}
 	
-	public void setCatalogTableListener(ListSelectionListener catalogTableListener) {
-		catalogTable.getSelectionModel().addListSelectionListener(catalogTableListener);
-	}
-	
-	public void setCatalogTableMouseListener(MouseListener tableMouseListener) {
-		catalogTable.addMouseListener(tableMouseListener);
-	}
-	
-	public void setCatalogListListener(ListSelectionListener catalogListListener) {
-		catalogListPanel.addListSelectionListener(catalogListListener);
-	}
-	
-	public void setCatalogListMouseListener(MouseListener listMouseListener) {
-		catalogListPanel.addListMouseListener(listMouseListener);
-	}
-	
-	public void setCatalogIconsListener(ListSelectionListener catalogIconsListener) {
-		catalogIconsPanel.addListSelectionListener(catalogIconsListener);
-	}
-	
-	public void setCatalogIconsMouseListener(MouseListener iconsMouseListener) {
-		catalogIconsPanel.addListMouseListener(iconsMouseListener);
-	}
-	
-	public void setTableModeListner(ActionListener tableModeListener) {
-		tableModeButton.addActionListener(tableModeListener);
-		tableMode.addActionListener(tableModeListener);
-	}
-	
-	public void setListModeListner(ActionListener listModeListener) {
-		listModeButton.addActionListener(listModeListener);
-		listMode.addActionListener(listModeListener);
-	}
-	
-	public void setIconsModeListner(ActionListener iconsModeListener) {
-		iconsModeButton.addActionListener(iconsModeListener);
-		iconsMode.addActionListener(iconsModeListener);
-	}
-	
 	public void setCurrentPathText(String currentPath) {
 		currentPathLabel.setText(CURRENT_PATH_LABEL_TEXT + currentPath);
-	}
-	
-	public void updateDrives(List<Drive> drives) {
-		drivesTableModel.updateData(drives);
 	}
 	
 	public void updateCatalogs(File fileRoot) {
@@ -275,14 +382,6 @@ public class MainWindow {
 	public void setHomeListner(ActionListener homeListener) {
 		homeButton.addActionListener(homeListener);
 		home.addActionListener(homeListener);
-	}
-	
-	public void setListSelectionListener(ListSelectionListener listSelectionListener) {
-		listSelectionModel.addListSelectionListener(listSelectionListener);
-	}
-	
-	public void setTreeSelectionListener(TreeSelectionListener treeSelectionListener) {
-		catalogsPanel.setTreeSelectionListener(treeSelectionListener);
 	}
 	
 	public void openHomeDirectory() {
